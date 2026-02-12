@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct JocungCamApp: App {
+struct JochungCamApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
     @StateObject private var recorder = ScreenRecorder()
@@ -9,7 +9,7 @@ struct JocungCamApp: App {
     @State private var showDepCheck = false
 
     var body: some Scene {
-        Window("JocungCam", id: "main") {
+        Window("JochungCam", id: "main") {
             MainWindow()
                 .environmentObject(appState)
                 .environmentObject(recorder)

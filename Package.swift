@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "JocungCam",
+    name: "JochungCam",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "JocungCam", targets: ["JocungCam"])
+        .executable(name: "JochungCam", targets: ["JochungCam"])
     ],
     targets: [
         .systemLibrary(
@@ -14,9 +14,9 @@ let package = Package(
             providers: [.brew(["libimagequant"])]
         ),
         .executableTarget(
-            name: "JocungCam",
+            name: "JochungCam",
             dependencies: ["CImageQuant"],
-            path: "Sources/JocungCam",
+            path: "Sources/JochungCam",
             linkerSettings: [
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("CoreImage"),

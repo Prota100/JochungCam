@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - JocungCam Design System
+// MARK: - JochungCam Design System
 enum HCTheme {
     // Colors
     static let accent = Color(hex: "FFD60A")       // Honey yellow

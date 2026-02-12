@@ -11,7 +11,7 @@ struct DependencySheet: View {
             // Header
             VStack(spacing: 6) {
                 Text("🍯").font(.system(size: 36))
-                Text("JocungCam 초기 설정").font(.system(size: 15, weight: .bold, design: .rounded))
+                Text("JochungCam 초기 설정").font(.system(size: 15, weight: .bold, design: .rounded))
                 Text("필요한 의존성을 설치합니다").font(.caption).foregroundColor(.secondary)
             }
 

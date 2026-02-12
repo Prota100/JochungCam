@@ -1,4 +1,4 @@
-# JocungCam 개발 계획서
+# JochungCam 개발 계획서
 
 ## 분석 요약
 
@@ -348,7 +348,7 @@ Honeycam/
 
 ## 파일 구조 (최종)
 ```
-JocungCam/
+JochungCam/
 ├── Package.swift
 ├── Resources/
 │   ├── Models/           — Core ML 업스케일링 모델
@@ -356,7 +356,7 @@ JocungCam/
 │   ├── Stickers/         — 스티커 에셋
 │   ├── Frames/           — 액자 에셋
 │   └── Localization/     — 다국어
-├── Sources/JocungCam/
+├── Sources/JochungCam/
 │   ├── App/              — 진입점, 상태 관리
 │   ├── Capture/          — 화면 캡처, 영역 선택, 커서
 │   ├── Encoder/          — GIF, WebP, WebM, MP4, APNG, AVIF

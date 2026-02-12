@@ -3,7 +3,7 @@ import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 
-/// Animated WebP encoder using cwebp + webpmux CLI (same approach as JocungCam's XLibWebP/XWebpMux)
+/// Animated WebP encoder using cwebp + webpmux CLI (same approach as JochungCam's XLibWebP/XWebpMux)
 enum WebPEncoder {
     struct Options {
         var quality: Int = 85       // 0-100

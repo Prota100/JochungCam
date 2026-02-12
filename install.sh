@@ -1,11 +1,11 @@
 #!/bin/bash
-# 조청캠 (JocungCam) for Mac — 원클릭 설치
-# bash <(curl -fsSL https://raw.githubusercontent.com/Prota100/JocungCam/main/install.sh)
+# 조청캠 (JochungCam) for Mac — 원클릭 설치
+# bash <(curl -fsSL https://raw.githubusercontent.com/Prota100/JochungCam/main/install.sh)
 
 set -e
 
 echo ""
-echo "  🍯 조청캠 (JocungCam) for Mac"
+echo "  🍯 조청캠 (JochungCam) for Mac"
 echo "  ─────────────────────────────"
 echo ""
 
@@ -47,7 +47,7 @@ echo "  🔨 빌드 중... (1~2분)"
 BUILD_DIR=$(mktemp -d)
 trap "rm -rf $BUILD_DIR" EXIT
 
-git clone --depth 1 --quiet https://github.com/Prota100/JocungCam.git "$BUILD_DIR/src"
+git clone --depth 1 --quiet https://github.com/Prota100/JochungCam.git "$BUILD_DIR/src"
 cd "$BUILD_DIR/src"
 
 if ! swift build -c release 2>&1 | grep -q "Build complete"; then
@@ -59,19 +59,19 @@ echo "  ✅ 빌드 완료"
 echo ""
 
 # ── .app 번들 ──
-APP="$BUILD_DIR/JocungCam.app"
+APP="$BUILD_DIR/JochungCam.app"
 mkdir -p "$APP/Contents/MacOS"
 
-cp ".build/arm64-apple-macosx/release/JocungCam" "$APP/Contents/MacOS/"
+cp ".build/arm64-apple-macosx/release/JochungCam" "$APP/Contents/MacOS/"
 
 cat > "$APP/Contents/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key><string>JocungCam</string>
-    <key>CFBundleIdentifier</key><string>com.prota100.jocungcam</string>
-    <key>CFBundleName</key><string>JocungCam</string>
+    <key>CFBundleExecutable</key><string>JochungCam</string>
+    <key>CFBundleIdentifier</key><string>com.prota100.jochungcam</string>
+    <key>CFBundleName</key><string>JochungCam</string>
     <key>CFBundleDisplayName</key><string>조청캠</string>
     <key>CFBundleVersion</key><string>1.0</string>
     <key>CFBundleShortVersionString</key><string>1.0</string>
@@ -107,20 +107,20 @@ codesign --force --deep --sign - "$APP" 2>/dev/null || true
 xattr -cr "$APP"
 
 # ── 설치 ──
-[ -d /Applications/JocungCam.app ] && rm -rf /Applications/JocungCam.app
+[ -d /Applications/JochungCam.app ] && rm -rf /Applications/JochungCam.app
 cp -R "$APP" /Applications/
 
 echo ""
 echo "  ✅ 설치 완료!"
 echo "  ─────────────────────────────"
-echo "  실행:   open /Applications/JocungCam.app"
+echo "  실행:   open /Applications/JochungCam.app"
 echo "  단축키: ⌘⇧G"
 echo ""
 
 if [ -t 0 ]; then
     read -p "  지금 실행? (Y/n) " -n 1 -r
     echo
-    [[ ! $REPLY =~ ^[Nn]$ ]] && open /Applications/JocungCam.app
+    [[ ! $REPLY =~ ^[Nn]$ ]] && open /Applications/JochungCam.app
 else
-    open /Applications/JocungCam.app
+    open /Applications/JochungCam.app
 fi

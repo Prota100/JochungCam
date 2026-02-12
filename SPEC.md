@@ -1,4 +1,4 @@
-# JocungCam for Mac — 제품 스펙
+# JochungCam for Mac — 제품 스펙
 
 ## 1. 제품 정의
 
@@ -46,7 +46,7 @@
 #### 화면 1: 홈 (캡처 대기)
 ```
 ┌─────────────────────────────────┐
-│          🍯 JocungCam            │
+│          🍯 JochungCam            │
 │                                 │
 │    ┌───────────────────────┐    │
 │    │                       │    │
@@ -199,7 +199,7 @@
 | GIF 저장 | NSSavePanel → 파일 저장 |
 | 클립보드 | NSPasteboard에 GIF 데이터 복사 |
 | Finder 표시 | 저장 후 Finder에서 파일 선택 |
-| 파일명 | jocungcam_YYYYMMDD_HHmmss.gif |
+| 파일명 | jochungcam_YYYYMMDD_HHmmss.gif |
 
 ---
 

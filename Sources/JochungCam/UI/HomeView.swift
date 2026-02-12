@@ -15,7 +15,7 @@ struct HomeView: View {
             HStack {
                 HStack(spacing: 6) {
                     Text("🍯").font(.system(size: 18))
-                    Text("JocungCam").font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text("JochungCam").font(.system(size: 15, weight: .bold, design: .rounded))
                 }
                 Spacer()
                 HCTag("v1.0-beta", color: HCTheme.textTertiary)
@@ -79,7 +79,7 @@ struct HomeView: View {
             }
             Button("확인", role: .cancel) {}
         } message: {
-            Text("시스템 설정 → 개인정보 보호 및 보안 → 화면 녹화에서 JocungCam을 활성화하세요.")
+            Text("시스템 설정 → 개인정보 보호 및 보안 → 화면 녹화에서 JochungCam을 활성화하세요.")
         }
         .overlay {
             if showCountdown {

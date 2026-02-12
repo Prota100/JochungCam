@@ -110,7 +110,7 @@ final class ScreenRecorder: ObservableObject {
             let dir = appState.directSavePath.isEmpty ?
                 FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first! :
                 URL(fileURLWithPath: appState.directSavePath)
-            let url = dir.appendingPathComponent("jocung_\(ts).gif")
+            let url = dir.appendingPathComponent("jochung_\(ts).gif")
             Task.detached {
                 do {
                     if useGifski && GifskiEncoder.isAvailable {

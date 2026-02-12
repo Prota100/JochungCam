@@ -350,7 +350,7 @@ struct ExportSheet: View {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: appState.outputFormat.ext) ?? .gif]
         let ts = { let f = DateFormatter(); f.dateFormat = "yyyyMMdd_HHmmss"; return f.string(from: Date()) }()
-        panel.nameFieldStringValue = "jocung_\(ts).\(appState.outputFormat.ext)"
+        panel.nameFieldStringValue = "jochung_\(ts).\(appState.outputFormat.ext)"
         panel.begin { r in
             guard r == .OK, let url = panel.url else { return }
             isPresented = false

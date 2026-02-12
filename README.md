@@ -2,7 +2,7 @@
   <img src="https://em-content.zobj.net/source/apple/391/honey-pot_1f36f.png" width="80" />
 </p>
 
-<h1 align="center">JocungCam</h1>
+<h1 align="center">JochungCam</h1>
 
 <p align="center">
   <b>Screen capture → GIF, done right. For macOS.</b>
@@ -24,7 +24,7 @@ HoneyCam is the go-to GIF recorder on Windows. They're not bringing it to Mac. S
 ## Install
 
 ```bash
-git clone https://github.com/Prota100/JocungCam.git /tmp/jc && bash /tmp/jc/install.sh && rm -rf /tmp/jc
+git clone https://github.com/Prota100/JochungCam.git /tmp/jc && bash /tmp/jc/install.sh && rm -rf /tmp/jc
 ```
 
 That's it. Installs deps, builds from source, signs the binary, drops it in `/Applications`. No "damaged file" BS — it's built on your machine.
@@ -34,8 +34,8 @@ That's it. Installs deps, builds from source, signs the binary, drops it in `/Ap
 
 ```bash
 brew install libimagequant gifski webp
-git clone https://github.com/Prota100/JocungCam.git
-cd JocungCam
+git clone https://github.com/Prota100/JochungCam.git
+cd JochungCam
 swift build -c release
 ```
 </details>
@@ -59,7 +59,7 @@ swift build -c release
 ## Architecture
 
 ```
-Sources/JocungCam/
+Sources/JochungCam/
 ├── App/        SwiftUI app, state, dependency check
 ├── Capture/    ScreenCaptureKit, region select, cursor tracking
 ├── Editor/     Frame ops, crop, resize, import
