@@ -79,6 +79,26 @@ cat > "$APP/Contents/Info.plist" << 'PLIST'
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSScreenCaptureUsageDescription</key><string>화면 캡처를 위해 권한이 필요합니다.</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Media</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.movie</string>
+                <string>public.video</string>
+                <string>com.apple.quicktime-movie</string>
+                <string>public.image</string>
+                <string>com.compuserve.gif</string>
+                <string>org.webmproject.webp</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>
 PLIST
