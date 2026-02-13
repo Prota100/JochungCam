@@ -73,31 +73,59 @@ struct EditorView: View {
             Color.black.opacity(0.3)
             if let f = appState.frames[safe: appState.selectedFrameIndex] {
                 Image(nsImage: f.nsImage).resizable().aspectRatio(contentMode: .fit).padding(4)
+                
+                // 크롭 오버레이
+                if cropMode {
+                    CropOverlayView(
+                        cropRect: $cropRect, 
+                        imageSize: CGSize(width: f.image.width, height: f.image.height)
+                    )
+                    .padding(4)
+                }
             }
         }
         .overlay(alignment: .bottomLeading) {
             HStack(spacing: 4) {
-                HCIconButton(isPlaying ? "pause.fill" : "play.fill", help: "재생/정지") { togglePlayback() }
-                HCIconButton("backward.frame.fill", help: "이전 프레임") { prevFrame() }
-                HCIconButton("forward.frame.fill", help: "다음 프레임") { nextFrame() }
-
-                Divider().frame(height: 14).opacity(0.3)
-
-                Menu {
-                    ForEach([0.25, 0.5, 1.0, 1.5, 2.0, 3.0], id: \.self) { s in
-                        Button("\(s == Double(Int(s)) ? "\(Int(s))" : String(format: "%.2g", s))x") {
-                            speed = s; if isPlaying { restartPlayback() }
-                        }
+                if cropMode {
+                    // 크롭 모드 컨트롤
+                    Button("적용") { applyCropOverlay() }
+                        .font(.system(size: 12, weight: .semibold))
+                        .buttonStyle(.borderedProminent).tint(HCTheme.accent).controlSize(.small)
+                    
+                    Button("취소") { cropMode = false }
+                        .font(.system(size: 12)).controlSize(.small)
+                        
+                    Divider().frame(height: 14).opacity(0.3)
+                    
+                    if let f = appState.frames[safe: appState.selectedFrameIndex] {
+                        let imgW = Int(cropRect.width * CGFloat(f.image.width))
+                        let imgH = Int(cropRect.height * CGFloat(f.image.height))
+                        Text("\(imgW)×\(imgH)").font(HCTheme.microMono).foregroundColor(HCTheme.textSecondary)
                     }
-                } label: {
-                    Text(speed == 1.0 ? "1x" : String(format: "%.2gx", speed))
-                        .font(HCTheme.microMono).foregroundColor(HCTheme.accent)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(HCTheme.accentDim).clipShape(Capsule())
-                }
+                } else {
+                    // 일반 모드 컨트롤
+                    HCIconButton(isPlaying ? "pause.fill" : "play.fill", help: "재생/정지") { togglePlayback() }
+                    HCIconButton("backward.frame.fill", help: "이전 프레임") { prevFrame() }
+                    HCIconButton("forward.frame.fill", help: "다음 프레임") { nextFrame() }
 
-                Text("\(appState.selectedFrameIndex + 1)/\(appState.frames.count)")
-                    .font(HCTheme.microMono).foregroundColor(HCTheme.textTertiary)
+                    Divider().frame(height: 14).opacity(0.3)
+
+                    Menu {
+                        ForEach([0.25, 0.5, 1.0, 1.5, 2.0, 3.0], id: \.self) { s in
+                            Button("\(s == Double(Int(s)) ? "\(Int(s))" : String(format: "%.2g", s))x") {
+                                speed = s; if isPlaying { restartPlayback() }
+                            }
+                        }
+                    } label: {
+                        Text(speed == 1.0 ? "1x" : String(format: "%.2gx", speed))
+                            .font(HCTheme.microMono).foregroundColor(HCTheme.accent)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(HCTheme.accentDim).clipShape(Capsule())
+                    }
+
+                    Text("\(appState.selectedFrameIndex + 1)/\(appState.frames.count)")
+                        .font(HCTheme.microMono).foregroundColor(HCTheme.textTertiary)
+                }
             }
             .padding(6)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: HCTheme.radiusSm))
@@ -276,7 +304,7 @@ struct EditorView: View {
             Divider().frame(height: 16).opacity(0.3).padding(.horizontal, 2)
 
             // Crop & Trim
-            HCIconButton("crop", help: "자르기 (크롭)") { startCrop() }
+            HCIconButton("crop", help: "자르기 (크롭)") { startCropOverlay() }
             HCIconButton("scissors", help: "트림 (구간 자르기)") { startTrim() }
             HCIconButton("clock", help: "프레임 시간") { showFrameTimeSheet = true }
 
@@ -334,6 +362,8 @@ struct EditorView: View {
     // MARK: - Sheets
 
     @State private var showCropSheet = false
+    @State private var cropMode = false
+    @State private var cropRect: CGRect = CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)
     @State private var cropX = "0"
     @State private var cropY = "0"
     @State private var cropW = ""
@@ -483,6 +513,36 @@ struct EditorView: View {
         FrameOps.crop(CGRect(x: cx, y: cy, width: cw, height: ch), frames: &appState.frames)
         showCropSheet = false
         appState.statusText = "크롭 → \(cw)×\(ch)"
+    }
+
+    // MARK: - Crop Overlay
+    func startCropOverlay() {
+        stopPlayback()
+        cropMode = true
+        // 기본 크롭 영역: 가운데 80%
+        cropRect = CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)
+    }
+
+    func applyCropOverlay() {
+        guard let first = appState.frames.first else { return }
+        let imageWidth = CGFloat(first.image.width)
+        let imageHeight = CGFloat(first.image.height)
+        
+        let cropPixelRect = CGRect(
+            x: cropRect.origin.x * imageWidth,
+            y: cropRect.origin.y * imageHeight,
+            width: cropRect.width * imageWidth,
+            height: cropRect.height * imageHeight
+        )
+        
+        pushUndo()
+        FrameOps.crop(cropPixelRect, frames: &appState.frames)
+        
+        let cw = Int(cropPixelRect.width)
+        let ch = Int(cropPixelRect.height)
+        appState.statusText = "크롭 → \(cw)×\(ch)"
+        
+        cropMode = false
     }
 
     func copyToClipboard() {
