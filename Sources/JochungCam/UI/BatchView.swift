@@ -166,7 +166,13 @@ struct BatchConvertView: View {
                 var frames: [GIFFrame]?
                 let ext = url.pathExtension.lowercased()
                 if ["gif", "webp", "apng", "png"].contains(ext) { frames = FrameOps.importGIF(from: url) }
-                else if ["mp4", "mov", "m4v"].contains(ext) { frames = await FrameOps.importVideo(from: url, fps: Double(fps)) }
+                else if ["mp4", "mov", "m4v"].contains(ext) { 
+                    frames = await FrameOps.importVideo(from: url, fps: Double(fps)) { progress, status in
+                        Task { @MainActor in 
+                            self.status = "\(url.lastPathComponent): \(status)"
+                        }
+                    }
+                }
                 guard let frames, !frames.isEmpty else { continue }
                 let outName = url.deletingPathExtension().lastPathComponent + "." + format.ext
                 let outURL = dir.appendingPathComponent(outName)

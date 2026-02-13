@@ -57,7 +57,13 @@ struct JochungCamApp: App {
             }
         } else if ["mp4", "mov", "m4v", "webm"].contains(ext) {
             Task {
-                if let frames = await FrameOps.importVideo(from: url, fps: Double(appState.fps)) {
+                let frames = await FrameOps.importVideo(from: url, fps: Double(appState.fps)) { progress, status in
+                    Task { @MainActor in
+                        appState.statusText = status
+                        appState.saveProgress = progress
+                    }
+                }
+                if let frames = frames {
                     appState.enterEditor(with: frames)
                 }
             }

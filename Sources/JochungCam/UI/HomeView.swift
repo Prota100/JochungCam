@@ -323,9 +323,25 @@ struct HomeView: View {
                     if let frames = FrameOps.importGIF(from: url) { appState.enterEditor(with: frames) }
                     else { appState.errorText = "파일을 열 수 없습니다" }
                 } else if ["mp4", "mov", "m4v", "webm", "avi"].contains(ext) {
-                    appState.statusText = "임포트 중..."
-                    if let frames = await FrameOps.importVideo(from: url, fps: Double(appState.fps)) { appState.enterEditor(with: frames) }
-                    else { appState.errorText = "영상을 열 수 없습니다" }
+                    appState.statusText = "동영상 분석 중..."
+                    appState.saveProgress = 0.0
+                    
+                    let frames = await FrameOps.importVideo(from: url, fps: Double(appState.fps)) { progress, status in
+                        Task { @MainActor in
+                            appState.saveProgress = progress
+                            appState.statusText = status
+                        }
+                    }
+                    
+                    if let frames = frames { 
+                        appState.enterEditor(with: frames) 
+                        appState.statusText = ""
+                        appState.saveProgress = 0.0
+                    } else { 
+                        appState.errorText = "영상을 열 수 없습니다"
+                        appState.statusText = ""
+                        appState.saveProgress = 0.0
+                    }
                 } else { appState.errorText = "지원하지 않는 형식" }
             }
         }

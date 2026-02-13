@@ -128,10 +128,22 @@ enum FrameOps {
     }
 
     // MARK: - Import Video
-    static func importVideo(from url: URL, fps: Double = 15) async -> [GIFFrame]? {
+    static func importVideo(from url: URL, fps: Double = 15, progress: (@Sendable (Double, String) -> Void)? = nil) async -> [GIFFrame]? {
+        progress?(0.0, "동영상 분석 중...")
+        
         let asset = AVURLAsset(url: url)
-        guard let duration = try? await asset.load(.duration) else { return nil }
+        guard let duration = try? await asset.load(.duration) else { 
+            progress?(0.0, "동영상을 열 수 없습니다")
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초 대기
+            return nil 
+        }
         let totalSec = CMTimeGetSeconds(duration)
+        
+        guard totalSec > 0.1 else {
+            progress?(0.0, "동영상이 너무 짧습니다")
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            return nil
+        }
         
         // 30초 넘으면 fps 줄여서 메모리 보호
         let maxFrames = 900 // 30초 * 30fps 정도
@@ -156,17 +168,34 @@ enum FrameOps {
         }
         
         // 배치로 처리 (메모리 관리)
-        for cmTime in times {
+        for (index, cmTime) in times.enumerated() {
+            // 프로그레스 업데이트
+            let progressPercent = Double(index) / Double(times.count)
+            let currentTime = CMTimeGetSeconds(cmTime)
+            progress?(progressPercent, String(format: "프레임 추출 중... %.1f/%.1fs (%d/%d)", currentTime, totalSec, frames.count, times.count))
+            
             if let (img, _) = try? await generator.image(at: cmTime) {
                 autoreleasepool {
                     frames.append(GIFFrame(image: img, duration: interval))
                 }
             }
+            
             // 100프레임마다 잠시 멈춰서 메모리 정리
             if frames.count % 100 == 0 {
                 try? await Task.sleep(nanoseconds: 10_000_000) // 0.01초
             }
         }
+        
+        progress?(0.95, "프레임 정리 중...")
+        
+        guard !frames.isEmpty else {
+            progress?(0.0, "추출된 프레임이 없습니다")
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            return nil
+        }
+        
+        progress?(1.0, "완료!")
+        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초 대기
         
         return frames.isEmpty ? nil : frames
     }
