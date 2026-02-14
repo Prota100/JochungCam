@@ -39,43 +39,64 @@ enum GIFQuality: String, CaseIterable, Identifiable {
 }
 
 enum GIFSizePreset: String, CaseIterable, Identifiable {
-    case light = "가벼움"       // 1MB, 작은 해상도
-    case normal = "보통"        // 3MB, 적당한 해상도
-    case discord = "디스코드"   // 10MB 제한
-    case high = "고화질"        // 큰 파일, 원본 해상도
+    case light = "가벼움"           // 1MB, 적당한 해상도 + 30fps
+    case normal = "표준"            // 3MB, 좋은 해상도 + 30fps
+    case discord = "디스코드"       // 10MB 제한 + 30fps
+    case high = "고화질"            // 큰 파일, 원본 해상도 + 60fps
 
     var id: String { rawValue }
     var label: String { rawValue }
 
     var maxWidth: Int {
         switch self {
-        case .light: return 400      // 가벼움: 400px
-        case .normal: return 640     // 보통: 640px 
-        case .discord: return 480    // 디스코드: 480px (10MB 제한)
-        case .high: return 0         // 고화질: 원본 해상도
+        case .light: return 500         // 가벼움: 500px (웹 최적화!)
+        case .normal: return 800        // 표준: 800px (데스크톱 최적화!)
+        case .discord: return 720       // 디스코드: 720px (채팅 최적화!)
+        case .high: return 0            // 고화질: 원본 해상도
         }
     }
+    
     var quality: GIFQuality {
         switch self {
-        case .light: return .low     // 가벼움: 64색
-        case .normal: return .medium // 보통: 128색
-        case .discord: return .high  // 디스코드: 256색
-        case .high: return .high     // 고화질: 256색
+        case .light: return .low         // 가벼움: 64색 (웹 최적화!)
+        case .normal: return .medium     // 표준: 128색 (균형잡힌 품질!)
+        case .discord: return .high      // 디스코드: 256색 (채팅 품질!)
+        case .high: return .high         // 고화질: 256색 (완벽 품질!)
         }
     }
+    
     var maxFileSizeKB: Int {
         switch self {
-        case .light: return 1000     // 가벼움: 1MB
-        case .normal: return 3000    // 보통: 3MB
-        case .discord: return 10000  // 디스코드: 10MB
-        case .high: return 0         // 고화질: 무제한
+        case .light: return 1000         // 가벼움: 1MB (웹 최적화!)
+        case .normal: return 3000        // 표준: 3MB (데스크톱 최적화!)
+        case .discord: return 8000       // 디스코드: 8MB (채팅 최적화!)
+        case .high: return 0             // 고화질: 무제한
         }
     }
+    
     var liqSpeed: Int {
         switch self {
-        case .high: return 1         // 고화질: 최고 품질
-        case .light: return 8        // 가벼움: 빠른 처리
-        default: return 4            // 보통: 균형
+        case .high: return 1             // 고화질: 최고 품질 (완벽한 압축!)
+        case .light: return 4            // 가벼움: 균형잡힌 압축
+        case .normal: return 2           // 표준: 고품질 압축
+        case .discord: return 3          // 디스코드: 좋은 압축
+        }
+    }
+    
+    var fps: Int {
+        switch self {
+        case .light: return 30           // 가벼움: 30fps (모바일 최적화)
+        case .normal: return 60          // 표준: 60fps (진짜 표준! ⚡)
+        case .discord: return 60         // 디스코드: 60fps (부드러움!)
+        case .high: return 120           // 고화질: 120fps (최고급 게임! 🚀)
+        }
+    }
+    
+    // 압축 공격성 (품질 vs 용량)
+    var aggressiveCompression: Bool {
+        switch self {
+        case .light: return true         // 가벼움만 적극 압축
+        default: return false            // 나머지는 품질 우선
         }
     }
 }
@@ -101,9 +122,12 @@ final class AppState: ObservableObject {
     // Mode
     @Published var mode: AppMode = .home
 
+    // 🎯 리리의 완전무결한 Undo/Redo 시스템
+    let undoSystem = UndoSystem()
+
     // Recording settings
-    @Published var fps: Int = 15             // 기본: 15fps (가벼움)
-    @Published var customFps: String = "15"
+    @Published var fps: Int = 60             // 기본: 60fps (게임 품질, 매끄러움!)
+    @Published var customFps: String = "60"
     @Published var cursorCapture: Bool = true
     @Published var countdown: Int = 0  // 0=off, 3, 5
     @Published var skipSameFrames: Bool = true
@@ -124,19 +148,19 @@ final class AppState: ObservableObject {
     @Published var selectedFrameIndex: Int = 0
     @Published var selectedFrameRange: Range<Int>? = nil
 
-    // Export settings
+    // Export settings  
     @Published var outputFormat: OutputFormat = .gif
-    @Published var gifQuality: GIFQuality = .medium  // 기본: 중간 품질 (가벼움)
+    @Published var gifQuality: GIFQuality = .low     // 🚀 기본을 low로 (QuickTime 변환에 최적화)
     @Published var quantMethod: QuantMethod = .liq
     @Published var useDither: Bool = true
     @Published var ditherLevel: Float = 1.0
     @Published var centerFocusedDither: Bool = false  // 중심색 포커스 디더링 (꿀캠 IDC_CHK_CENTER_FOCUSED_COLOR_DITHER)
     @Published var skipQuantizeWhenQ100: Bool = true   // Q100이면 양자화 스킵 (꿀캠 IDC_CHK_SKIP_QUANTIZE_WHEN_Q_100)
-    @Published var removeSimilarPixels: Bool = false   // 유사 픽셀 제거 (꿀캠 IDC_CHK_GIF_REMOVE_SIMILAR_PIXELS)
-    @Published var liqSpeed: Int = 4       // libimagequant speed 1-10 (1=최고품질, 10=최고속도) (꿀캠 IDC_EDIT_GIF_QUANT_SPEED)
-    @Published var liqQuality: Int = 90    // libimagequant quality 0-100 (꿀캠 IDC_EDIT_GIF_QUANT_QUALITY)
-    @Published var maxWidth: Int = 640       // 기본: 640px (가벼움) 
-    @Published var maxFileSizeKB: Int = 3000  // 기본: 3MB 제한
+    @Published var removeSimilarPixels: Bool = true    // 🚀 기본 켜기! (가장 효과적)
+    @Published var liqSpeed: Int = 2       // 🚀 더 느리게 해서 품질 향상 (4→2)
+    @Published var liqQuality: Int = 95    // 🚀 더 높은 품질 (90→95)
+    @Published var maxWidth: Int = 480     // 🚀 더 작게 (640→480, QuickTime 최적화)
+    @Published var maxFileSizeKB: Int = 1000  // 🚀 더 공격적 (3MB→1MB)
     @Published var loopCount: Int = 0      // 0=infinite
     @Published var webpQuality: Int = 85
     @Published var webpLossless: Bool = false
@@ -166,8 +190,16 @@ final class AppState: ObservableObject {
     
     // UI
     @Published var showBatch: Bool = false
+    
+    // Speed control
+    @Published var speedMultiplier: Double = 1.0
+    
+    // Advanced compression settings
+    @Published var smartCompression: Bool = true     // 스마트 압축 활성화
+    @Published var adaptiveQuality: Bool = true      // 적응형 품질 조정
+    @Published var frameOptimization: Bool = true    // 프레임 최적화
 
-    let fpsPresets = [10, 15, 20, 25, 30, 50, 60]
+    let fpsPresets = [60, 30, 120, 24]      // 의미있는 FPS: 게임(기본), 웹, 초고품질, 영화
     static let maxFrames = 3000
     static let maxSeconds: TimeInterval = 300
 
@@ -237,6 +269,150 @@ final class AppState: ObservableObject {
 
     func parseFps() {
         if let v = Int(customFps), v >= 1, v <= 120 { fps = v }
+    }
+    
+    // MARK: - 🎯 리리의 완전무결한 편집 메서드들
+    
+    /// 프레임 삭제 (Undo 지원)
+    func deleteFrame(at index: Int) {
+        guard frames.indices.contains(index), frames.count > 1 else { return }
+        
+        let command = DeleteFrameCommand(
+            frameIndex: index,
+            deletedFrame: frames[index]
+        )
+        
+        undoSystem.execute(command, frames: &frames)
+        
+        // 선택 인덱스 조정
+        selectedFrameIndex = min(selectedFrameIndex, frames.count - 1)
+        statusText = "프레임 삭제됨"
+    }
+    
+    /// 트림 (구간 자르기) - Undo 지원
+    func trimFrames(to range: Range<Int>) {
+        guard range.upperBound <= frames.count, !range.isEmpty else { return }
+        
+        let command = TrimFramesCommand(
+            originalFrames: frames,  // 전체 원본 저장
+            trimRange: range
+        )
+        
+        undoSystem.execute(command, frames: &frames)
+        
+        selectedFrameIndex = 0
+        statusText = "트림 → \(range.count)프레임"
+    }
+    
+    /// 크롭 (이미지 자르기) - Undo 지원
+    func cropFrames(to rect: CGRect) {
+        guard rect.width > 0, rect.height > 0 else { return }
+        
+        let command = CropCommand(
+            originalFrames: frames,  // 크롭 전 원본
+            cropRect: rect
+        )
+        
+        undoSystem.execute(command, frames: &frames)
+        
+        let w = Int(rect.width), h = Int(rect.height)
+        statusText = "크롭 → \(w)×\(h)"
+    }
+    
+    /// 속도 조절 - Undo 지원
+    func adjustSpeed(multiplier: Double) {
+        let originalDurations = frames.map { $0.duration }
+        
+        let command = SpeedAdjustCommand(
+            speedMultiplier: multiplier,
+            originalDurations: originalDurations
+        )
+        
+        undoSystem.execute(command, frames: &frames)
+        
+        let percent = Int(multiplier * 100)
+        statusText = "속도 \(percent)% 적용"
+    }
+    
+    /// 프레임 순서/개수 조작 - Undo 지원  
+    func reorderFrames(operation: ReorderFramesCommand.FrameReorderType) {
+        let command = ReorderFramesCommand(
+            originalOrder: frames,
+            operationType: operation
+        )
+        
+        undoSystem.execute(command, frames: &frames)
+        
+        // 선택 인덱스 조정
+        selectedFrameIndex = min(selectedFrameIndex, frames.count - 1)
+        statusText = "\(operation.description) 적용"
+    }
+    
+    /// 유사 프레임 제거 - Undo 지원
+    func removeSimilarFrames(threshold: Int = 5) {
+        let command = RemoveSimilarCommand(
+            originalFrames: frames,
+            threshold: threshold
+        )
+        
+        let beforeCount = frames.count
+        undoSystem.execute(command, frames: &frames)
+        
+        let removedCount = beforeCount - frames.count
+        statusText = "유사 프레임 \(removedCount)개 제거"
+        
+        // 선택 인덱스 조정
+        selectedFrameIndex = min(selectedFrameIndex, frames.count - 1)
+    }
+    
+    /// 프레임 duration 설정 - Undo 지원
+    func setFrameDuration(index: Int?, duration: TimeInterval) {
+        let originalDurations = frames.map { $0.duration }
+        
+        let command = SetFrameDurationCommand(
+            frameIndex: index,
+            newDuration: duration,
+            originalDurations: originalDurations
+        )
+        
+        undoSystem.execute(command, frames: &frames)
+        
+        if let idx = index {
+            statusText = "프레임 \(idx + 1) 시간 설정"
+        } else {
+            statusText = "전체 프레임 시간 설정"
+        }
+    }
+    
+    /// Undo 실행
+    func undo() {
+        if undoSystem.undo(frames: &frames) {
+            // 선택 인덱스 조정
+            selectedFrameIndex = min(selectedFrameIndex, frames.count - 1)
+            statusText = "실행 취소: \(undoSystem.redoDescription)"
+        }
+    }
+    
+    /// Redo 실행  
+    func redo() {
+        if undoSystem.redo(frames: &frames) {
+            // 선택 인덱스 조정
+            selectedFrameIndex = min(selectedFrameIndex, frames.count - 1) 
+            statusText = "다시 실행: \(undoSystem.undoDescription)"
+        }
+    }
+    
+    /// Undo/Redo 히스토리 초기화
+    func clearEditHistory() {
+        undoSystem.clear()
+        statusText = "편집 히스토리 초기화"
+    }
+    
+    /// 현재 편집 상태 정보
+    var editHistoryInfo: String {
+        let (undoCount, redoCount, memoryKB) = undoSystem.historyInfo
+        let memoryMB = memoryKB / 1024
+        return "Undo: \(undoCount), Redo: \(redoCount), 메모리: \(memoryMB)MB"
     }
 }
 

@@ -17,20 +17,20 @@ enum HCTheme {
     static let success = Color(hex: "30D158")
     static let recording = Color(hex: "FF453A")
 
-    // Spacing
-    static let pad: CGFloat = 12
-    static let padSm: CGFloat = 6
-    static let padLg: CGFloat = 16
+    // Spacing (더 넓게!)
+    static let pad: CGFloat = 16        // 12 → 16
+    static let padSm: CGFloat = 8       // 6 → 8  
+    static let padLg: CGFloat = 20      // 16 → 20
     static let radius: CGFloat = 8
     static let radiusSm: CGFloat = 5
 
-    // Fonts
-    static let title = Font.system(size: 14, weight: .semibold, design: .rounded)
-    static let body = Font.system(size: 12)
-    static let caption = Font.system(size: 11)
-    static let captionMono = Font.system(size: 11, design: .monospaced)
-    static let micro = Font.system(size: 9)
-    static let microMono = Font.system(size: 9, design: .monospaced)
+    // Fonts (더 크게!)
+    static let title = Font.system(size: 16, weight: .semibold, design: .rounded)    // 14 → 16
+    static let body = Font.system(size: 14)      // 12 → 14
+    static let caption = Font.system(size: 13)   // 11 → 13  
+    static let captionMono = Font.system(size: 13, design: .monospaced)  // 11 → 13
+    static let micro = Font.system(size: 12)     // 9 → 12 (micro도 키움!)
+    static let microMono = Font.system(size: 12, design: .monospaced)    // 9 → 12
     static let display = Font.system(size: 48, weight: .ultraLight, design: .monospaced)
 }
 
@@ -66,7 +66,7 @@ struct HCSection<Content: View>: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: HCTheme.padSm) {
-            Text(title).font(.system(size: 10, weight: .bold)).foregroundColor(HCTheme.textTertiary)
+            Text(title).font(.system(size: 12, weight: .bold)).foregroundColor(HCTheme.textTertiary)  // 10 → 12
                 .textCase(.uppercase).tracking(0.5)
             content
         }
@@ -85,12 +85,12 @@ struct HCPillButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 3) {
-                if let icon { Image(systemName: icon).font(.system(size: 9)) }
+            HStack(spacing: 4) {  // 3 → 4
+                if let icon { Image(systemName: icon).font(.system(size: 12)) }  // 9 → 12
                 Text(label)
             }
-            .font(.system(size: 10, weight: isActive ? .semibold : .regular))
-            .padding(.horizontal, 8).padding(.vertical, 4)
+            .font(.system(size: 13, weight: isActive ? .semibold : .regular))  // 10 → 13
+            .padding(.horizontal, 12).padding(.vertical, 6)  // 8,4 → 12,6
             .background(isActive ? HCTheme.accent.opacity(0.2) : Color.clear)
             .foregroundColor(isActive ? HCTheme.accent : HCTheme.textSecondary)
             .overlay(Capsule().stroke(isActive ? HCTheme.accent.opacity(0.5) : HCTheme.border))
@@ -113,8 +113,8 @@ struct HCIconButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 11))
-                .frame(width: 26, height: 26)
+            Image(systemName: icon).font(.system(size: 14))  // 11 → 14
+                .frame(width: 32, height: 32)  // 26 → 32
                 .background(isHovered ? (danger ? HCTheme.danger.opacity(0.15) : HCTheme.surfaceHover) : Color.clear)
                 .foregroundColor(danger ? HCTheme.danger : HCTheme.textSecondary)
                 .clipShape(RoundedRectangle(cornerRadius: HCTheme.radiusSm))
@@ -146,8 +146,8 @@ struct HCTag: View {
     }
 
     var body: some View {
-        Text(text).font(.system(size: 9, weight: .semibold))
-            .padding(.horizontal, 6).padding(.vertical, 2)
+        Text(text).font(.system(size: 11, weight: .semibold))  // 9 → 11
+            .padding(.horizontal, 8).padding(.vertical, 3)     // 6,2 → 8,3
             .background(color.opacity(0.15))
             .foregroundColor(color)
             .clipShape(Capsule())

@@ -2,10 +2,10 @@
   <img src="https://em-content.zobj.net/source/apple/391/honey-pot_1f36f.png" width="80" />
 </p>
 
-<h1 align="center">JochungCam</h1>
+<h1 align="center">🏆 JochungCam Ultimate</h1>
 
 <p align="center">
-  <b>Screen capture → GIF, done right. For macOS.</b>
+  <b>Screen capture → GIF, done right. For macOS. Now with GPU acceleration & beautiful UI.</b>
 </p>
 
 <p align="center">
@@ -46,9 +46,13 @@ swift build -c release
 
 **Capture** — Region select, fullscreen, half, quarter. 10–60 FPS. Pause/resume. Cursor highlighting with separate left/right click colors. Countdown timer. Direct save mode.
 
-**Edit** — QuickTime-style trim. Crop with ratio presets. Remove even/odd/similar frames. Speed ±10%. Reverse. Yoyo. Per-frame timing. 30-level undo.
+**Edit** — Revolutionary SpeedControlView with 0.25x–4x precision. QuickTime-style trim. Crop with ratio presets. Remove even/odd/similar frames. Reverse. Yoyo. Per-frame timing. **Complete Undo/Redo system** with full state restoration.
 
-**Export** — GIF (libimagequant + gifski cross-frame optimization), WebP (lossy/lossless), MP4 (H.264), APNG. Full control over quantization, dithering, color count, file size limits.
+**Export** — GIF (libimagequant + gifski cross-frame optimization), WebP (lossy/lossless), MP4 (H.264), APNG. **Smart preview with size prediction**. Full control over quantization, dithering, color count, file size limits. **Professional batch processing**.
+
+**🎨 Ultimate UI** — 6 beautiful themes (System, Dark, Light, Midnight, Purple, Green). Smooth animations with pulse, shimmer, breathing effects. **Complete dark mode support**. Modern navigation-based interface.
+
+**⚡ GPU Acceleration** — Metal-powered high-performance processing. CPU/GPU hybrid optimization. Real-time performance monitoring. Memory-efficient frame handling.
 
 **Presets** — Discord (<10MB), Telegram (<5MB), Twitter (<15MB), small (<2MB), HQ (unlimited). One click.
 
@@ -76,6 +80,18 @@ Sources/JochungCam/
 | WebP | libwebp (cwebp/webpmux) |
 
 ---
+
+## Release (reproducible baseline)
+
+```bash
+./scripts/release_pipeline.sh 1.0.1
+```
+
+Outputs:
+- `release/JochungCam.app`
+- `release/JochungCam-v1.0.1-macOS-arm64.zip`
+- `release/SHA256SUMS.txt`
+- logs in `release/logs/`
 
 ## Roadmap
 

@@ -134,7 +134,7 @@ final class ScreenRecorder: ObservableObject {
                             Task { @MainActor in appState.saveProgress = p }
                         }
                     } else {
-                        try GIFEncoder.encode(frames: frames, to: url, options: opts) { p in
+                        try await GIFEncoder.encode(frames: frames, to: url, options: opts) { p in
                             Task { @MainActor in appState.saveProgress = p }
                         }
                     }

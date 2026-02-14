@@ -2,7 +2,7 @@
 # 조청캠 (JochungCam) for Mac — 원클릭 설치
 # bash <(curl -fsSL https://raw.githubusercontent.com/Prota100/JochungCam/main/install.sh)
 
-set -e
+set -euo pipefail
 
 echo ""
 echo "  🍯 조청캠 (JochungCam) for Mac"
@@ -17,11 +17,22 @@ if ! xcode-select -p &>/dev/null; then
     exit 1
 fi
 
+if ! command -v swift &>/dev/null; then
+    echo "  ❌ swift를 찾을 수 없습니다. Xcode/CLI Tools 설치를 확인하세요."
+    exit 1
+fi
+
 # ── Homebrew ──
 if ! command -v brew &>/dev/null; then
     echo "  🍺 Homebrew 설치 중..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    [ -f /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+# Apple Silicon / Intel 둘 다 PATH 복구
+if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
 fi
 
 if ! command -v brew &>/dev/null; then
@@ -36,7 +47,7 @@ for pkg in libimagequant gifski webp; do
         echo "     ✅ $pkg"
     else
         echo "     ⬇️  $pkg..."
-        brew install "$pkg" 2>/dev/null
+        brew install "$pkg"
         echo "     ✅ $pkg"
     fi
 done
@@ -45,24 +56,41 @@ echo ""
 # ── 소스 빌드 ──
 echo "  🔨 빌드 중... (1~2분)"
 BUILD_DIR=$(mktemp -d)
-trap "rm -rf $BUILD_DIR" EXIT
+trap 'rm -rf "$BUILD_DIR"' EXIT
 
 git clone --depth 1 --quiet https://github.com/Prota100/JochungCam.git "$BUILD_DIR/src"
 cd "$BUILD_DIR/src"
 
-if ! swift build -c release 2>&1 | grep -q "Build complete"; then
-    echo "  ❌ 빌드 실패:"
-    swift build -c release 2>&1 | tail -10
+if ! swift build -c release; then
+    echo "  ❌ 빌드 실패"
     exit 1
 fi
-echo "  ✅ 빌드 완료"
+
+# 산출물 경로 자동 탐지 (Apple Silicon / Intel 대응)
+BIN_PATH=""
+for p in \
+  ".build/arm64-apple-macosx/release/JochungCam" \
+  ".build/x86_64-apple-macosx/release/JochungCam" \
+  ".build/release/JochungCam"
+  do
+  if [ -f "$p" ]; then
+    BIN_PATH="$p"
+    break
+  fi
+done
+
+if [ -z "$BIN_PATH" ]; then
+    echo "  ❌ 빌드 산출물을 찾지 못했습니다."
+    exit 1
+fi
+
+echo "  ✅ 빌드 완료 ($BIN_PATH)"
 echo ""
 
 # ── .app 번들 ──
 APP="$BUILD_DIR/JochungCam.app"
 mkdir -p "$APP/Contents/MacOS"
-
-cp ".build/arm64-apple-macosx/release/JochungCam" "$APP/Contents/MacOS/"
+cp "$BIN_PATH" "$APP/Contents/MacOS/JochungCam"
 
 cat > "$APP/Contents/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -73,8 +101,8 @@ cat > "$APP/Contents/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key><string>com.prota100.jochungcam</string>
     <key>CFBundleName</key><string>JochungCam</string>
     <key>CFBundleDisplayName</key><string>조청캠</string>
-    <key>CFBundleVersion</key><string>1.0</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key><string>1.0.1</string>
+    <key>CFBundleShortVersionString</key><string>1.0.1</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSScreenCaptureUsageDescription</key><string>화면 캡처를 위해 권한이 필요합니다.</string>
@@ -103,11 +131,13 @@ cat > "$APP/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP" 2>/dev/null || true
+codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
 xattr -cr "$APP"
 
 # ── 설치 ──
-[ -d /Applications/JochungCam.app ] && rm -rf /Applications/JochungCam.app
+if [ -d /Applications/JochungCam.app ]; then
+    rm -rf /Applications/JochungCam.app
+fi
 cp -R "$APP" /Applications/
 
 echo ""
@@ -118,9 +148,9 @@ echo "  단축키: ⌘⇧G"
 echo ""
 
 if [ -t 0 ]; then
-    read -p "  지금 실행? (Y/n) " -n 1 -r
+    read -r -p "  지금 실행? (Y/n) " -n 1 REPLY
     echo
-    [[ ! $REPLY =~ ^[Nn]$ ]] && open /Applications/JochungCam.app
+    [[ ! "$REPLY" =~ ^[Nn]$ ]] && open /Applications/JochungCam.app
 else
     open /Applications/JochungCam.app
 fi

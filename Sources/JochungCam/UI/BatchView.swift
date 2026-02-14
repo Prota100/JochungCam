@@ -180,9 +180,9 @@ struct BatchConvertView: View {
                 case .gif:
                     if useGifski && GifskiEncoder.isAvailable {
                         try? GifskiEncoder.encode(frames: frames, to: outURL, options: .init(fps: fps, quality: opts.quality, maxWidth: opts.maxWidth)) { _ in }
-                    } else { try? GIFEncoder.encode(frames: frames, to: outURL, options: opts) { _ in } }
+                    } else { try? await GIFEncoder.encode(frames: frames, to: outURL, options: opts) { _ in } }
                 case .mp4: try? await MP4Encoder.encode(frames: frames, to: outURL, quality: 80) { _ in }
-                default: try? GIFEncoder.encode(frames: frames, to: outURL, options: opts) { _ in }
+                default: try? await GIFEncoder.encode(frames: frames, to: outURL, options: opts) { _ in }
                 }
                 await MainActor.run { progress = Double(i + 1) / Double(filesToConvert.count); completed = i + 1 }
             }

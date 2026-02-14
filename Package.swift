@@ -7,6 +7,9 @@ let package = Package(
     products: [
         .executable(name: "JochungCam", targets: ["JochungCam"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-testing.git", from: "0.6.0")
+    ],
     targets: [
         .systemLibrary(
             name: "CImageQuant",
@@ -25,6 +28,14 @@ let package = Package(
                 .linkedLibrary("imagequant"),
                 .unsafeFlags(["-L/opt/homebrew/lib"]),
             ]
+        ),
+        .testTarget(
+            name: "JochungCamTests",
+            dependencies: [
+                "JochungCam",
+                .product(name: "Testing", package: "swift-testing")
+            ],
+            path: "Tests/JochungCamTests"
         )
     ]
 )

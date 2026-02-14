@@ -8,7 +8,7 @@ enum WebPEncoder {
     struct Options {
         var quality: Int = 85       // 0-100
         var lossless: Bool = false
-        var fps: Int = 15
+        var fps: Int = 60
         var loopCount: Int = 0      // 0 = infinite
         var maxWidth: Int = 0
     }

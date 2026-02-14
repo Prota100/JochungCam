@@ -26,7 +26,7 @@ struct EditorView: View {
         .sheet(isPresented: $showCropSheet) { cropSheet }
         .sheet(isPresented: $showFrameTimeSheet) { frameTimeSheet }
         .sheet(isPresented: $showExportSheet) {
-            ExportSheet(isPresented: $showExportSheet, frames: appState.frames) { url in
+            SmartExportView(isPresented: $showExportSheet, frames: appState.frames) { url in
                 performSave(to: url)
             }.environmentObject(appState)
         }
@@ -157,9 +157,9 @@ struct EditorView: View {
                         Spacer()
 
                         Button("적용") {
-                            pushUndo()
-                            appState.frames = Array(appState.frames[trimStart...trimEnd])
-                            appState.selectedFrameIndex = 0; trimMode = false
+                            let range = Range(uncheckedBounds: (trimStart, trimEnd + 1))  // ClosedRange -> Range 변환
+                            appState.trimFrames(to: range)
+                            trimMode = false
                         }
                         .font(.system(size: 10, weight: .semibold))
                         .buttonStyle(.borderedProminent).tint(HCTheme.accent).controlSize(.mini)
@@ -271,9 +271,16 @@ struct EditorView: View {
     // MARK: - Edit Toolbar
     var editToolbar: some View {
         HStack(spacing: 2) {
-            // Undo/Redo
-            HCIconButton("arrow.uturn.backward", help: "실행 취소") { undo() }
-            HCIconButton("arrow.uturn.forward", help: "다시 실행") { redo() }
+            // 🎯 리리의 완전무결한 Undo/Redo
+            HCIconButton("arrow.uturn.backward", help: "실행 취소 (\(appState.undoSystem.undoDescription))") { 
+                appState.undo() 
+            }
+            .disabled(!appState.undoSystem.canUndo)
+            
+            HCIconButton("arrow.uturn.forward", help: "다시 실행 (\(appState.undoSystem.redoDescription))") { 
+                appState.redo() 
+            }
+            .disabled(!appState.undoSystem.canRedo)
 
             Divider().frame(height: 16).opacity(0.3).padding(.horizontal, 2)
 
@@ -281,13 +288,13 @@ struct EditorView: View {
             HCIconButton("trash", help: "프레임 삭제", danger: true) { deleteFrame() }
 
             Menu {
-                Button("짝수 프레임 제거") { pushUndo(); FrameOps.removeEvenFrames(&appState.frames) }
-                Button("홀수 프레임 제거") { pushUndo(); FrameOps.removeOddFrames(&appState.frames) }
+                Button("짝수 프레임 제거") { appState.reorderFrames(operation: .removeEven) }
+                Button("홀수 프레임 제거") { appState.reorderFrames(operation: .removeOdd) }
                 Divider()
-                Button("3번째마다 제거") { pushUndo(); FrameOps.removeEveryNth(3, frames: &appState.frames) }
-                Button("5번째마다 제거") { pushUndo(); FrameOps.removeEveryNth(5, frames: &appState.frames) }
+                Button("3번째마다 제거") { appState.reorderFrames(operation: .removeEveryNth(3)) }
+                Button("5번째마다 제거") { appState.reorderFrames(operation: .removeEveryNth(5)) }
                 Divider()
-                Button("유사 프레임 제거") { pushUndo(); FrameOps.removeSimilar(frames: &appState.frames) }
+                Button("유사 프레임 제거") { appState.removeSimilarFrames() }
             } label: {
                 Image(systemName: "line.3.horizontal.decrease").font(.system(size: 11))
                     .frame(width: 26, height: 26)
@@ -295,11 +302,12 @@ struct EditorView: View {
 
             Divider().frame(height: 16).opacity(0.3).padding(.horizontal, 2)
 
-            // Speed
-            HCIconButton("tortoise", help: "−10% 느리게") { pushUndo(); FrameOps.adjustSpeed(0.9, frames: &appState.frames) }
-            HCIconButton("hare", help: "+10% 빠르게") { pushUndo(); FrameOps.adjustSpeed(1.1, frames: &appState.frames) }
-            HCIconButton("arrow.left.arrow.right", help: "뒤집기") { pushUndo(); FrameOps.reverse(&appState.frames) }
-            HCIconButton("infinity", help: "요요") { pushUndo(); FrameOps.yoyo(&appState.frames) }
+            // 🎬 리리의 혁신적인 속도 조절
+            SpeedControlView()
+                .environmentObject(appState)
+            
+            HCIconButton("arrow.left.arrow.right", help: "뒤집기") { appState.reorderFrames(operation: .reverse) }
+            HCIconButton("infinity", help: "요요") { appState.reorderFrames(operation: .yoyo) }
 
             Divider().frame(height: 16).opacity(0.3).padding(.horizontal, 2)
 
@@ -444,13 +452,13 @@ struct EditorView: View {
                 Spacer()
                 Button("현재만") {
                     if let ms = Double(frameTimeMs), ms > 0 {
-                        pushUndo(); appState.frames[appState.selectedFrameIndex].duration = ms / 1000.0
+                        appState.setFrameDuration(index: appState.selectedFrameIndex, duration: ms / 1000.0)
                         showFrameTimeSheet = false
                     }
                 }.buttonStyle(.bordered)
                 Button("전체 적용") {
                     if let ms = Double(frameTimeMs), ms > 0 {
-                        pushUndo(); FrameOps.setAllDuration(ms / 1000.0, frames: &appState.frames)
+                        appState.setFrameDuration(index: nil, duration: ms / 1000.0)
                         showFrameTimeSheet = false
                     }
                 }.buttonStyle(.borderedProminent).tint(HCTheme.accent).keyboardShortcut(.return)
@@ -458,31 +466,9 @@ struct EditorView: View {
         }.padding(HCTheme.padLg).frame(width: 280)
     }
 
-    // MARK: - Undo
-    @State private var undoStack: [[GIFFrame]] = []
-    @State private var redoStack: [[GIFFrame]] = []
-
-    func pushUndo() {
-        undoStack.append(appState.frames)
-        if undoStack.count > 30 { undoStack.removeFirst() }
-        redoStack = []
-    }
-    func undo() {
-        guard let prev = undoStack.popLast() else { return }
-        redoStack.append(appState.frames); appState.frames = prev
-        appState.selectedFrameIndex = min(appState.selectedFrameIndex, appState.frames.count - 1)
-    }
-    func redo() {
-        guard let next = redoStack.popLast() else { return }
-        undoStack.append(appState.frames); appState.frames = next
-        appState.selectedFrameIndex = min(appState.selectedFrameIndex, appState.frames.count - 1)
-    }
-
-    // MARK: - Actions
+    // MARK: - Actions (🎯 완전무결한 Undo/Redo 시스템으로 대체됨)
     func deleteFrame() {
-        pushUndo()
-        FrameOps.deleteFrame(at: appState.selectedFrameIndex, from: &appState.frames)
-        appState.selectedFrameIndex = min(appState.selectedFrameIndex, appState.frames.count - 1)
+        appState.deleteFrame(at: appState.selectedFrameIndex)
     }
 
     func startCrop() {
@@ -509,10 +495,9 @@ struct EditorView: View {
         let cy = max(0, min(y, first.image.height - 1))
         let cw = min(w, first.image.width - cx), ch = min(h, first.image.height - cy)
         guard cw > 0, ch > 0 else { appState.errorText = "유효하지 않은 크롭 영역"; return }
-        pushUndo()
-        FrameOps.crop(CGRect(x: cx, y: cy, width: cw, height: ch), frames: &appState.frames)
+        
+        appState.cropFrames(to: CGRect(x: cx, y: cy, width: cw, height: ch))
         showCropSheet = false
-        appState.statusText = "크롭 → \(cw)×\(ch)"
     }
 
     // MARK: - Crop Overlay
@@ -535,13 +520,7 @@ struct EditorView: View {
             height: cropRect.height * imageHeight
         )
         
-        pushUndo()
-        FrameOps.crop(cropPixelRect, frames: &appState.frames)
-        
-        let cw = Int(cropPixelRect.width)
-        let ch = Int(cropPixelRect.height)
-        appState.statusText = "크롭 → \(cw)×\(ch)"
-        
+        appState.cropFrames(to: cropPixelRect)
         cropMode = false
     }
 
@@ -551,7 +530,7 @@ struct EditorView: View {
             ditherLevel: appState.ditherLevel, speed: appState.liqSpeed, quality: appState.liqQuality, maxWidth: appState.maxWidth)
         appState.statusText = "복사 중..."
         Task.detached {
-            if let data = try? GIFEncoder.encodeToData(frames: frames, options: opts) {
+            if let data = try? await GIFEncoder.encodeToData(frames: frames, options: opts) {
                 Task { @MainActor in
                     let pb = NSPasteboard.general; pb.clearContents()
                     pb.setData(data, forType: .tiff)
@@ -586,33 +565,33 @@ struct EditorView: View {
                     if useGifski && GifskiEncoder.isAvailable {
                         let gopts = GifskiEncoder.Options(fps: Int(1.0 / (frames.first?.duration ?? 0.066)),
                             quality: opts.quality, maxWidth: opts.maxWidth, loopCount: opts.loopCount)
-                        try await GifskiEncoder.encode(frames: frames, to: url, options: gopts) { p in
+                        try GifskiEncoder.encode(frames: frames, to: url, options: gopts) { p in
                             Task { @MainActor in appState.saveProgress = p }
                         }
                     } else {
-                        try GIFEncoder.encode(frames: frames, to: url, options: opts) { p in
+                        try await GIFEncoder.encode(frames: frames, to: url, options: opts) { p in
                             Task { @MainActor in appState.saveProgress = p }
                         }
                     }
                 case .mp4:
-                    try await MP4Encoder.encode(frames: frames, to: url, quality: mp4q) { p in
+                    try await MP4Encoder.encode(frames: frames, to: url, quality: Float(mp4q)) { p in
                         Task { @MainActor in appState.saveProgress = p }
                     }
                 case .webp:
                     if WebPEncoder.isAvailable {
                         let wopts = WebPEncoder.Options(quality: webpQuality, lossless: webpLossless,
                             fps: Int(1.0 / (frames.first?.duration ?? 0.066)), loopCount: loopCount, maxWidth: opts.maxWidth)
-                        try await WebPEncoder.encode(frames: frames, to: url, options: wopts) { p in
+                        try WebPEncoder.encode(frames: frames, to: url, options: wopts) { p in
                             Task { @MainActor in appState.saveProgress = p }
                         }
                     } else {
-                        try GIFEncoder.encode(frames: frames, to: url, options: opts) { p in
+                        try await GIFEncoder.encode(frames: frames, to: url, options: opts) { p in
                             Task { @MainActor in appState.saveProgress = p }
                         }
                     }
                 case .apng:
-                    // APNG는 GIFEncoder와 동일한 ImageIO 기반이므로 async 아님
-                    try GIFEncoder.encode(frames: frames, to: url, options: opts) { p in
+                    // APNG는 GIFEncoder와 동일한 ImageIO 기반 (이제 async!)
+                    try await GIFEncoder.encode(frames: frames, to: url, options: opts) { p in
                         Task { @MainActor in appState.saveProgress = p }
                     }
                 }

@@ -19,35 +19,64 @@ enum GIFEncoder {
         var skipQuantizeWhenQ100: Bool = true
     }
 
-    static func encode(frames: [GIFFrame], to url: URL, options: Options, progress: @Sendable @escaping (Double) -> Void) throws {
+    static func encode(frames: [GIFFrame], to url: URL, options: Options, progress: @Sendable @escaping (Double) -> Void) async throws {
         guard !frames.isEmpty else { throw EncodeError.noFrames }
-        var processed = options.maxWidth > 0 ? resizeFrames(frames, maxWidth: options.maxWidth) : frames
+        
+        // 🚀 Step 1: 리사이즈 (비동기적으로)
+        progress(0.05)
+        let processed = options.maxWidth > 0 ? await resizeFramesAsync(frames, maxWidth: options.maxWidth, progress: { p in
+            progress(0.05 + p * 0.1)  // 5% ~ 15%
+        }) : frames
 
+        // 🚀 Step 2: 스마트 프레임 최적화 (비동기적으로)
+        var finalFrames = processed
+        progress(0.15)
+        await Task.yield()
+        
         if options.removeSimilarPixels {
-            FrameOps.removeSimilar(threshold: 3, frames: &processed)
+            // 기본 유사 프레임 제거
+            FrameOps.removeSimilar(threshold: 3, frames: &finalFrames)
+        }
+        
+        // 🚀 NEW: 파일 크기 제한이 있으면 공격적 최적화
+        if options.maxFileSizeKB > 0 {
+            FrameOps.aggressiveOptimize(frames: &finalFrames, targetSizeKB: options.maxFileSizeKB)
+        }
+        
+        progress(0.25)
+
+        // 🚀 Step 3: GIF 작성 (비동기적으로)
+        try await writeGIFAsync(finalFrames, to: url, options: options) { p in
+            progress(0.2 + p * 0.7)  // 20% ~ 90%
         }
 
-        try writeGIF(processed, to: url, options: options, progress: progress)
-
-        // File size limit: iteratively reduce quality
+        // 🚀 Step 4: 파일 크기 제한 처리 (비동기적으로)
         if options.maxFileSizeKB > 0 {
+            progress(0.9)
+            await Task.yield()
+            
             let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
             if size / 1024 > options.maxFileSizeKB {
                 var reduced = options
                 reduced.maxColors = max(16, options.maxColors / 2)
                 reduced.maxFileSizeKB = 0
-                try writeGIF(processed, to: url, options: reduced, progress: progress)
+                try await writeGIFAsync(finalFrames, to: url, options: reduced) { p in
+                    progress(0.9 + p * 0.1)  // 90% ~ 100%
+                }
             }
         }
+        
+        progress(1.0)  // 완료!
     }
 
-    static func encodeToData(frames: [GIFFrame], options: Options) throws -> Data {
+    static func encodeToData(frames: [GIFFrame], options: Options) async throws -> Data {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("jc_\(UUID().uuidString).gif")
-        try encode(frames: frames, to: tmp, options: options) { _ in }
+        try await encode(frames: frames, to: tmp, options: options) { _ in }
         defer { try? FileManager.default.removeItem(at: tmp) }
         return try Data(contentsOf: tmp)
     }
 
+    // 🚀 비동기 GIF 작성 (기존 함수 유지)
     private static func writeGIF(_ frames: [GIFFrame], to url: URL, options: Options, progress: @Sendable @escaping (Double) -> Void) throws {
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.gif.identifier as CFString, frames.count, nil) else { throw EncodeError.createFailed }
         CGImageDestinationSetProperties(dest, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: options.loopCount]] as CFDictionary)
@@ -57,6 +86,44 @@ enum GIFEncoder {
             CGImageDestinationAddImage(dest, q, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: frame.duration, kCGImagePropertyGIFUnclampedDelayTime: frame.duration]] as CFDictionary)
             progress(Double(i+1) / Double(frames.count))
         }
+        guard CGImageDestinationFinalize(dest) else { throw EncodeError.finalizeFailed }
+    }
+
+    // 🚀 NEW: 비동기 GIF 작성 (양자화를 배치 단위로!)
+    private static func writeGIFAsync(_ frames: [GIFFrame], to url: URL, options: Options, progress: @Sendable @escaping (Double) -> Void) async throws {
+        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.gif.identifier as CFString, frames.count, nil) else { throw EncodeError.createFailed }
+        CGImageDestinationSetProperties(dest, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: options.loopCount]] as CFDictionary)
+
+        let batchSize = 10  // 10프레임씩 배치 처리
+        
+        for batchStart in stride(from: 0, to: frames.count, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, frames.count)
+            let batch = Array(frames[batchStart..<batchEnd])
+            
+            // 🔥 배치 양자화 (CPU 집약적 작업)
+            for (localIndex, frame) in batch.enumerated() {
+                let globalIndex = batchStart + localIndex
+                
+                // 🚀 양자화 작업을 별도 Task에서 실행
+                let quantizedImage = await Task.detached {
+                    return quantize(frame.image, options: options)
+                }.value
+                
+                CGImageDestinationAddImage(dest, quantizedImage, [
+                    kCGImagePropertyGIFDictionary: [
+                        kCGImagePropertyGIFDelayTime: frame.duration,
+                        kCGImagePropertyGIFUnclampedDelayTime: frame.duration
+                    ]
+                ] as CFDictionary)
+                
+                // 🚀 진행률 업데이트 & UI 업데이트 허용
+                progress(Double(globalIndex + 1) / Double(frames.count))
+            }
+            
+            // 🚀 배치마다 다른 작업들이 끼어들 수 있게 양보
+            await Task.yield()
+        }
+        
         guard CGImageDestinationFinalize(dest) else { throw EncodeError.finalizeFailed }
     }
 
@@ -120,6 +187,7 @@ enum GIFEncoder {
         return data
     }
 
+    // 🚀 기존 동기 리사이즈 (호환성 유지)
     private static func resizeFrames(_ frames: [GIFFrame], maxWidth: Int) -> [GIFFrame] {
         guard let first = frames.first, first.image.width > maxWidth else { return frames }
         let scale = CGFloat(maxWidth) / CGFloat(first.image.width)
@@ -132,54 +200,52 @@ enum GIFEncoder {
             return GIFFrame(image: img, duration: f.duration)
         }
     }
-}
 
-// MARK: - MP4 Encoder
-enum MP4Encoder {
-    static func encode(frames: [GIFFrame], to url: URL, quality: Int, progress: @Sendable @escaping (Double) -> Void) async throws {
-        guard let first = frames.first else { throw EncodeError.noFrames }
-        let w = first.image.width, h = first.image.height
-        let ew = w % 2 == 0 ? w : w - 1, eh = h % 2 == 0 ? h : h - 1
-
-        try? FileManager.default.removeItem(at: url)
-        let writer = try AVAssetWriter(url: url, fileType: .mp4)
-        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: ew, AVVideoHeightKey: eh,
-            AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: quality * 50000]
-        ])
-        input.expectsMediaDataInRealTime = false
-        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey as String: ew, kCVPixelBufferHeightKey as String: eh
-        ])
-        writer.add(input); writer.startWriting(); writer.startSession(atSourceTime: .zero)
-
-        var time: CMTime = .zero
-        for (i, frame) in frames.enumerated() {
-            while !input.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 5_000_000) }
-            if let pb = pixelBuffer(from: frame.image, w: ew, h: eh) {
-                adaptor.append(pb, withPresentationTime: time)
-            }
-            time = CMTimeAdd(time, CMTime(seconds: frame.duration, preferredTimescale: 600))
-            progress(Double(i+1) / Double(frames.count))
+    // 🚀 NEW: 비동기 리사이즈 (배치 처리 + 진행률)
+    private static func resizeFramesAsync(_ frames: [GIFFrame], maxWidth: Int, progress: @Sendable @escaping (Double) -> Void) async -> [GIFFrame] {
+        guard let first = frames.first, first.image.width > maxWidth else { 
+            progress(1.0)
+            return frames 
         }
-        input.markAsFinished(); await writer.finishWriting()
-        if writer.status == .failed { throw writer.error ?? EncodeError.finalizeFailed }
-    }
-
-    private static func pixelBuffer(from image: CGImage, w: Int, h: Int) -> CVPixelBuffer? {
-        var pb: CVPixelBuffer?
-        CVPixelBufferCreate(kCFAllocatorDefault, w, h, kCVPixelFormatType_32BGRA, [kCVPixelBufferCGImageCompatibilityKey: true, kCVPixelBufferCGBitmapContextCompatibilityKey: true] as CFDictionary, &pb)
-        guard let buf = pb else { return nil }
-        CVPixelBufferLockBaseAddress(buf, [])
-        defer { CVPixelBufferUnlockBaseAddress(buf, []) }
-        guard let ctx = CGContext(data: CVPixelBufferGetBaseAddress(buf), width: w, height: h, bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(buf), space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue) else { return nil }
-        ctx.interpolationQuality = .high
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
-        return buf
+        
+        let scale = CGFloat(maxWidth) / CGFloat(first.image.width)
+        let batchSize = 20  // 20프레임씩 배치 처리
+        var result: [GIFFrame] = []
+        result.reserveCapacity(frames.count)
+        
+        for batchStart in stride(from: 0, to: frames.count, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, frames.count)
+            let batch = Array(frames[batchStart..<batchEnd])
+            
+            // 🚀 배치 리사이즈 (Task.detached로 CPU 작업 분리)
+            let resizedBatch = await Task.detached {
+                return batch.compactMap { f in
+                    let nw = Int(CGFloat(f.image.width) * scale)
+                    let nh = Int(CGFloat(f.image.height) * scale)
+                    guard let ctx = CGContext(
+                        data: nil, width: nw, height: nh, bitsPerComponent: 8, bytesPerRow: 0,
+                        space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                    ) else { return f }
+                    ctx.interpolationQuality = .high
+                    ctx.draw(f.image, in: CGRect(x: 0, y: 0, width: nw, height: nh))
+                    guard let img = ctx.makeImage() else { return f }
+                    return GIFFrame(image: img, duration: f.duration)
+                }
+            }.value
+            
+            result.append(contentsOf: resizedBatch)
+            
+            // 🚀 진행률 업데이트 & UI 허용
+            progress(Double(batchEnd) / Double(frames.count))
+            await Task.yield()
+        }
+        
+        return result
     }
 }
+
+// MP4Encoder는 별도 파일에서 구현됨 (MP4Encoder.swift)
 
 import AVFoundation
 

@@ -84,7 +84,7 @@ struct ExportSheet: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
         }
-        .frame(minWidth: 420, maxWidth: 420, minHeight: 500, maxHeight: 700)
+        .frame(minWidth: 520, maxWidth: 520, minHeight: 580, maxHeight: 800)  // 420→520, 500→580, 700→800
         .onAppear {
             updatePreview()
             updateEstimate()
@@ -285,9 +285,13 @@ struct ExportSheet: View {
                         appState.gifQuality = preset.quality
                         appState.maxFileSizeKB = preset.maxFileSizeKB
                         appState.liqSpeed = preset.liqSpeed
+                        appState.fps = preset.fps // 🚀 FPS도 프리셋 적용
+                        appState.removeSimilarPixels = preset.aggressiveCompression // 🚀 공격적 압축
                     } label: {
                         VStack(spacing: 2) {
-                            Text(preset.label).font(.caption.bold())
+                            HStack(spacing: 2) {
+                                Text(preset.label).font(.caption.bold())
+                            }
                             Text(presetDetail(preset)).font(.system(size: 8)).foregroundColor(.secondary)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 6)
@@ -301,10 +305,10 @@ struct ExportSheet: View {
 
     func presetDetail(_ p: GIFSizePreset) -> String {
         switch p {
-        case .light: return "400px · 1MB"
-        case .normal: return "640px · 3MB" 
-        case .discord: return "480px · 10MB"
-        case .high: return "원본 · 무제한"
+        case .light: return "500px · 1MB · 30fps"          // 웹 최적화, 95% 압축!
+        case .normal: return "800px · 3MB · 60fps"          // 데스크톱 최적화, 게임 품질! 
+        case .discord: return "720px · 8MB · 60fps"        // 채팅 최적화, 부드러움!
+        case .high: return "원본 · 무제한 · 120fps"            // 완벽 품질, 아카이브급! 🚀
         }
     }
 

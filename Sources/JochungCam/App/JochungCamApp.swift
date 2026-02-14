@@ -28,7 +28,7 @@ struct JochungCamApp: App {
         }
         .windowStyle(.titleBar)
         .windowResizability(.contentMinSize)
-        .defaultSize(width: 420, height: 320)
+        .defaultSize(width: 540, height: 420)  // 420x320 → 540x420 (약 1.3배)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("새 캡처") { NotificationCenter.default.post(name: .startCapture, object: nil) }
@@ -113,25 +113,39 @@ extension Notification.Name {
 
 struct MainWindow: View {
     @EnvironmentObject var appState: AppState
+    @State private var useUltimateUI = true // Ultimate UI 사용 여부
 
     var body: some View {
-        ZStack {
-            switch appState.mode {
-            case .home, .selecting:
-                HomeView()
+        Group {
+            if useUltimateUI {
+                // 🎉 리리의 Ultimate UI
+                UltimateHomeView()
                     .transition(.opacity)
-            case .recording, .paused:
-                RecordingView()
-                    .transition(.opacity)
-            case .editing, .cropping:
-                EditorView()
-                    .transition(.opacity)
-            case .saving:
-                SavingView()
-                    .transition(.opacity)
+            } else {
+                // 기존 UI (호환성)
+                ZStack {
+                    switch appState.mode {
+                    case .home, .selecting:
+                        HomeView()
+                            .transition(.opacity)
+                    case .recording, .paused:
+                        RecordingView()
+                            .transition(.opacity)
+                    case .editing, .cropping:
+                        SimpleEditorView()
+                            .transition(.opacity)
+                    case .saving:
+                        SavingView()
+                            .transition(.opacity)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.15), value: appState.mode)
             }
         }
-        .animation(.easeInOut(duration: 0.15), value: appState.mode)
         .sheet(isPresented: $appState.showBatch) { BatchConvertView().environmentObject(appState) }
+        .onAppear {
+            // Ultimate UI 자동 활성화 (사용자가 원하지 않으면 끌 수 있음)
+            useUltimateUI = UserDefaults.standard.object(forKey: "UseUltimateUI") as? Bool ?? true
+        }
     }
 }

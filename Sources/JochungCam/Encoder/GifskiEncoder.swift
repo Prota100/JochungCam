@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 /// High-quality GIF encoder using gifski CLI (cross-frame palette optimization)
 enum GifskiEncoder {
     struct Options {
-        var fps: Int = 15
+        var fps: Int = 60
         var quality: Int = 90       // 1-100
         var maxWidth: Int = 0       // 0 = keep
         var maxHeight: Int = 0

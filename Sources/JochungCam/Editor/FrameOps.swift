@@ -61,6 +61,108 @@ enum FrameOps {
         frames = kept
     }
 
+    // 🚀 NEW: QuickTime 변환에 최적화된 공격적 압축
+    static func aggressiveOptimize(frames: inout [GIFFrame], targetSizeKB: Int = 500) {
+        guard frames.count > 5 else { return }
+        let originalCount = frames.count
+
+        // 1단계: 매우 유사한 프레임 제거 (더 낮은 threshold)
+        removeSimilar(threshold: 2, frames: &frames)
+
+        // 2단계: 정적인 구간 감지하여 추가 프레임 드롭
+        removeStaticSequences(frames: &frames)
+
+        // 3단계: 너무 짧은 프레임 병합 (깜빡이는 느낌 제거)
+        mergeShortFrames(minDuration: 0.05, frames: &frames)
+
+        // 4단계: 여전히 크다면 FPS 줄이기
+        let estimatedSizeKB = estimateGIFSize(frames)
+        if estimatedSizeKB > targetSizeKB && estimatedSizeKB > 0 {
+            let ratio = max(0.05, min(0.95, Double(targetSizeKB) / Double(estimatedSizeKB)))
+            reduceFrameRate(targetRatio: ratio, frames: &frames)
+        }
+
+        // 5단계: strict target인데 변화가 없으면 최소 1회 강제 샘플링
+        if frames.count == originalCount && targetSizeKB <= 100 {
+            reduceFrameRate(targetRatio: 0.5, frames: &frames)
+        }
+    }
+
+    // 🚀 정적인 구간에서 중간 프레임들 제거 - 🔧 수정됨
+    static func removeStaticSequences(frames: inout [GIFFrame]) {
+        guard frames.count > 1 else { return }
+
+        var optimized: [GIFFrame] = [frames[0]]
+        for i in 1..<frames.count {
+            if framesAreSimilar(optimized.last!.image, frames[i].image, threshold: 3) {
+                optimized[optimized.count - 1].duration += frames[i].duration
+            } else {
+                optimized.append(frames[i])
+            }
+        }
+
+        frames = optimized
+    }
+
+    // 🚀 너무 짧은 프레임들 병합 (깜빡임 방지) - 🔧 수정됨
+    static func mergeShortFrames(minDuration: TimeInterval, frames: inout [GIFFrame]) {
+        guard frames.count > 1 else { return }
+
+        var merged: [GIFFrame] = []
+        var shortBatchDuration: TimeInterval = 0
+        var shortBatchImage: CGImage?
+
+        for frame in frames {
+            if frame.duration < minDuration {
+                if shortBatchImage == nil { shortBatchImage = frame.image }
+                shortBatchDuration += frame.duration
+            } else {
+                if shortBatchDuration > 0, let img = shortBatchImage {
+                    merged.append(GIFFrame(image: img, duration: shortBatchDuration))
+                    shortBatchDuration = 0
+                    shortBatchImage = nil
+                }
+                merged.append(frame)
+            }
+        }
+
+        if shortBatchDuration > 0, let img = shortBatchImage {
+            merged.append(GIFFrame(image: img, duration: shortBatchDuration))
+        }
+
+        frames = merged
+    }
+
+    // 🚀 FPS 적응형 감소
+    static func reduceFrameRate(targetRatio: Double, frames: inout [GIFFrame]) {
+        guard targetRatio < 1.0, frames.count > 2 else { return }
+        
+        let keepEvery = Int(ceil(1.0 / targetRatio))
+        var reduced: [GIFFrame] = []
+        
+        for (i, frame) in frames.enumerated() {
+            if i % keepEvery == 0 {
+                var newFrame = frame
+                // 다음 몇 프레임의 duration 합산
+                for j in 1..<keepEvery where i + j < frames.count {
+                    newFrame.duration += frames[i + j].duration
+                }
+                reduced.append(newFrame)
+            }
+        }
+        
+        frames = reduced
+    }
+
+    // 🚀 GIF 크기 추정 (대략적)
+    static func estimateGIFSize(_ frames: [GIFFrame]) -> Int {
+        guard let first = frames.first else { return 0 }
+        let pixels = first.image.width * first.image.height
+        let bytesPerFrame = Double(pixels) * 0.3 // 대략적 추정
+        let totalBytes = bytesPerFrame * Double(frames.count)
+        return max(1, Int(totalBytes / 1024)) // KB
+    }
+
     private static func framesAreSimilar(_ a: CGImage, _ b: CGImage, threshold: Int) -> Bool {
         guard a.width == b.width, a.height == b.height else { return false }
         guard let da = a.dataProvider?.data, let db = b.dataProvider?.data else { return false }
@@ -128,7 +230,7 @@ enum FrameOps {
     }
 
     // MARK: - Import Video
-    static func importVideo(from url: URL, fps: Double = 15, progress: (@Sendable (Double, String) -> Void)? = nil) async -> [GIFFrame]? {
+    static func importVideo(from url: URL, fps: Double = 60, progress: (@Sendable (Double, String) -> Void)? = nil) async -> [GIFFrame]? {
         progress?(0.0, "동영상 분석 중...")
         
         let asset = AVURLAsset(url: url)
